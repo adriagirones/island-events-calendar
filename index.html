@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="screen-orientation" content="landscape">
+<meta name="x5-orientation" content="landscape">
+<title>Island Events — This Week</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sand: #FBF8F4;
+    --card: #FFFFFF;
+    --ink: #4A3424;
+    --clay: #A0623A;
+    --coral: #D9B08C;
+    --line: rgba(74,52,36,0.12);
+  }
+
+  *{ margin:0; padding:0; box-sizing:border-box; }
+
+  html,body{
+    width:100%; height:100%;
+    background: var(--sand);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+  }
+
+  .page{
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 2.2vh 2.2vw;
+  }
+
+  header{
+    display:flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-bottom: 1.6vh;
+    border-bottom: 2px solid var(--line);
+    margin-bottom: 1.8vh;
+  }
+
+  .title{
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 2.6vw;
+    letter-spacing: -0.01em;
+  }
+
+  .title span{ color: var(--clay); }
+
+  .clock{
+    font-size: 1.2vw;
+    font-weight: 500;
+    color: var(--ink);
+    opacity: 0.6;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .week{
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1vw;
+    min-height: 0;
+  }
+
+  .day{
+    background: var(--card);
+    border-radius: 14px;
+    padding: 1.4vh 1vw;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border: 1px solid var(--line);
+    transition: transform 0.3s ease;
+  }
+
+  .day.today{
+    background: #FFFDF9;
+    border: 2px solid var(--clay);
+    box-shadow: 0 8px 24px rgba(160,98,58,0.16);
+    transform: translateY(-0.6vh);
+  }
+
+  .day-head{
+    padding-bottom: 1vh;
+    margin-bottom: 1vh;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .day-name{
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 1.5vw;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .day.today .day-name{ color: var(--clay); }
+
+  .day-date{
+    font-size: 0.95vw;
+    opacity: 0.55;
+    font-weight: 500;
+  }
+
+  .today-tag{
+    display:inline-block;
+    margin-top: 0.4vh;
+    background: var(--clay);
+    color: var(--card);
+    font-size: 0.7vw;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 0.2vh 0.7vh;
+    border-radius: 5px;
+    text-transform: uppercase;
+  }
+
+  .events{
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8vh;
+  }
+
+  .event{
+    background: var(--sand);
+    border-radius: 8px;
+    padding: 0.8vh 0.7vw;
+    border-left: 3px solid var(--coral);
+  }
+
+  .day.today .event{
+    border-left-color: var(--clay);
+  }
+
+  .event-time{
+    font-size: 0.85vw;
+    font-weight: 700;
+    color: var(--clay);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .event-title{
+    font-size: 1vw;
+    font-weight: 600;
+    line-height: 1.25;
+    margin-top: 0.2vh;
+  }
+
+  .event-location{
+    font-size: 0.78vw;
+    opacity: 0.6;
+    margin-top: 0.2vh;
+  }
+
+  .no-events{
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 0.85vw;
+    opacity: 0.35;
+    font-style: italic;
+    padding: 1vh;
+  }
+
+  /* scrollbar - subtle, for TV usually hidden but kept gentle if content overflows */
+  .events::-webkit-scrollbar{ width: 4px; }
+  .events::-webkit-scrollbar-thumb{ background: var(--line); border-radius: 4px; }
+
+  footer{
+    text-align: center;
+    padding-top: 1.4vh;
+    font-size: 0.8vw;
+    opacity: 0.4;
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div class="title">This week <span>on the island</span></div>
+      <div class="clock" id="clock"></div>
+    </header>
+
+    <div class="week" id="week"></div>
+
+    <footer>Updated automatically &mdash; events added via the back office</footer>
+  </div>
+
+<script>
+  // --- Supabase config ---
+  const SUPABASE_URL = "https://zvfxwnvlfvbuxtnqznhq.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2Znh3bnZsZnZidXh0bnF6bmhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMzY3MTAsImV4cCI6MjA5NTcxMjcxMH0.DHWdG1Mz3zPcpDFDKXFEe-iD0YwtuYTB2usVHOmhTT4";
+  const TABLE = "events";
+
+  const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+  function formatDateISO(d){
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`; // YYYY-MM-DD in LOCAL time
+  }
+
+  function formatDateLabel(d){
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  function formatTime(t){
+    if(!t) return null;
+    // t is "HH:MM:SS" or "HH:MM"
+    const [h,m] = t.split(':');
+    const hour = parseInt(h,10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const h12 = hour % 12 === 0 ? 12 : hour % 12;
+    return `${h12}:${m} ${ampm}`;
+  }
+
+  function buildWeek(){
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const days = [];
+    for(let i=0;i<7;i++){
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }
+
+  async function fetchEvents(startISO, endISO){
+    const url = `${SUPABASE_URL}/rest/v1/${TABLE}?select=*&date=gte.${startISO}&date=lte.${endISO}&order=date.asc,time.asc`;
+    const res = await fetch(url, {
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+    if(!res.ok){
+      console.error("Failed to fetch events", res.status, await res.text());
+      return [];
+    }
+    return res.json();
+  }
+
+  function render(days, eventsByDate){
+    const week = document.getElementById('week');
+    week.innerHTML = '';
+
+    days.forEach((d, idx) => {
+      const iso = formatDateISO(d);
+      const isToday = idx === 0;
+
+      const dayEl = document.createElement('div');
+      dayEl.className = 'day' + (isToday ? ' today' : '');
+
+      const head = document.createElement('div');
+      head.className = 'day-head';
+      head.innerHTML = `
+        <div class="day-name">${DAY_NAMES[d.getDay()]}</div>
+        <div class="day-date">${formatDateLabel(d)}</div>
+        ${isToday ? '<div class="today-tag">Today</div>' : ''}
+      `;
+      dayEl.appendChild(head);
+
+      const eventsEl = document.createElement('div');
+      eventsEl.className = 'events';
+
+      const dayEvents = eventsByDate[iso] || [];
+
+      if(dayEvents.length === 0){
+        eventsEl.innerHTML = '<div class="no-events">No events</div>';
+      } else {
+        dayEvents.forEach(ev => {
+          const evEl = document.createElement('div');
+          evEl.className = 'event';
+          const time = formatTime(ev.time);
+          evEl.innerHTML = `
+            ${time ? `<div class="event-time">${time}</div>` : ''}
+            <div class="event-title">${escapeHTML(ev.title)}</div>
+            ${ev.location ? `<div class="event-location">${escapeHTML(ev.location)}</div>` : ''}
+          `;
+          eventsEl.appendChild(evEl);
+        });
+      }
+
+      dayEl.appendChild(eventsEl);
+      week.appendChild(dayEl);
+    });
+  }
+
+  function escapeHTML(str){
+    const div = document.createElement('div');
+    div.textContent = str ?? '';
+    return div.innerHTML;
+  }
+
+  function updateClock(){
+    const now = new Date();
+    document.getElementById('clock').textContent = now.toLocaleString('en-US', {
+      weekday: 'long', hour: '2-digit', minute: '2-digit'
+    });
+  }
+
+  async function load(){
+    const days = buildWeek();
+    const startISO = formatDateISO(days[0]);
+    const endISO = formatDateISO(days[6]);
+
+    const events = await fetchEvents(startISO, endISO);
+
+    const eventsByDate = {};
+    events.forEach(ev => {
+      const key = ev.date;
+      if(!eventsByDate[key]) eventsByDate[key] = [];
+      eventsByDate[key].push(ev);
+    });
+
+    render(days, eventsByDate);
+  }
+
+  updateClock();
+  setInterval(updateClock, 30000);
+
+  load();
+  // Refresh data every 5 minutes, and rebuild the week at midnight rollover
+  setInterval(load, 5 * 60 * 1000);
+</script>
+</body>
+</html>
