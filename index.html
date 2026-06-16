@@ -263,7 +263,7 @@
     const start = ev.date;
     const end = ev.recurrence_end || null;
 
-    if(rec === 'none'){
+    if(rec === 'none' || rec === 'once'){
       return ev.date === iso;
     }
 
@@ -271,6 +271,11 @@
     if(end && iso > end) return false;
 
     if(rec === 'daily') return true;
+
+    if(rec === 'weekdays'){
+      const wd = dateObj.getDay();
+      return wd >= 1 && wd <= 5;
+    }
 
     if(rec === 'weekly'){
       const days = ev.recurrence_days;
@@ -283,6 +288,10 @@
     }
 
     if(rec === 'monthly'){
+      const days = ev.recurrence_days;
+      if(Array.isArray(days) && days.length > 0){
+        return days.includes(dateObj.getDate());
+      }
       const startObj = new Date(start + 'T00:00:00');
       return startObj.getDate() === dateObj.getDate();
     }
