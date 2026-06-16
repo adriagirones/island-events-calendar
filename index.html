@@ -240,8 +240,10 @@
     return days;
   }
 
-  async function fetchEvents(startISO, endISO){
-    const url = `${SUPABASE_URL}/rest/v1/${TABLE}?select=*&date=gte.${startISO}&date=lte.${endISO}&order=date.asc,time.asc`;
+  async function fetchEvents(){
+    // Fetch all events; recurrence expansion happens client-side so we
+    // need events whose original date may be before the displayed week.
+    const url = `${SUPABASE_URL}/rest/v1/${TABLE}?select=*&order=date.asc,time.asc`;
     const res = await fetch(url, {
       headers: {
         "apikey": SUPABASE_ANON_KEY,
@@ -253,6 +255,44 @@
       return [];
     }
     return res.json();
+  }
+
+  // Does this event occur on the given date `iso` (YYYY-MM-DD)?
+  function occursOn(ev, iso, dateObj){
+    const rec = ev.recurrence || 'none';
+    const start = ev.date;
+    const end = ev.recurrence_end || null;
+
+    if(rec === 'none'){
+      return ev.date === iso;
+    }
+
+    if(iso < start) return false;
+    if(end && iso > end) return false;
+
+    if(rec === 'daily') return true;
+
+    if(rec === 'weekly'){
+      const days = ev.recurrence_days;
+      if(Array.isArray(days) && days.length > 0){
+        return days.includes(dateObj.getDay());
+      }
+      // fallback: same weekday as original date
+      const startObj = new Date(start + 'T00:00:00');
+      return startObj.getDay() === dateObj.getDay();
+    }
+
+    if(rec === 'monthly'){
+      const startObj = new Date(start + 'T00:00:00');
+      return startObj.getDate() === dateObj.getDate();
+    }
+
+    if(rec === 'yearly'){
+      const startObj = new Date(start + 'T00:00:00');
+      return startObj.getDate() === dateObj.getDate() && startObj.getMonth() === dateObj.getMonth();
+    }
+
+    return false;
   }
 
   function render(days, eventsByDate){
@@ -316,16 +356,15 @@
 
   async function load(){
     const days = buildWeek();
-    const startISO = formatDateISO(days[0]);
-    const endISO = formatDateISO(days[6]);
-
-    const events = await fetchEvents(startISO, endISO);
+    const events = await fetchEvents();
 
     const eventsByDate = {};
-    events.forEach(ev => {
-      const key = ev.date;
-      if(!eventsByDate[key]) eventsByDate[key] = [];
-      eventsByDate[key].push(ev);
+    days.forEach(d => {
+      const iso = formatDateISO(d);
+      const dayEvents = events
+        .filter(ev => occursOn(ev, iso, d))
+        .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+      if(dayEvents.length > 0) eventsByDate[iso] = dayEvents;
     });
 
     render(days, eventsByDate);
